@@ -1,0 +1,561 @@
+ 
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>규산염 사면체 구조 시뮬레이션</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            min-height: 100vh;
+            color: white;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2em;
+            margin-bottom: 10px;
+            color: #e0e0ff;
+            text-shadow: 0 0 20px rgba(100,100,255,0.8);
+        }
+        .subtitle {
+            text-align: center;
+            font-size: 0.95em;
+            color: #aaa;
+            margin-bottom: 25px;
+        }
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+        }
+        .left-panel { flex: 1; min-width: 320px; }
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1em;
+            font-family: 'Malgun Gothic', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .btn:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.4); }
+        .btn.active { transform: scale(1.03); box-shadow: 0 0 20px rgba(255,255,255,0.3); }
+        .btn-tetra   { background: linear-gradient(135deg,#6c3483,#9b59b6); color:white; }
+        .btn-single  { background: linear-gradient(135deg,#1a5276,#2980b9); color:white; }
+        .btn-double  { background: linear-gradient(135deg,#0e6655,#1abc9c); color:white; }
+        .btn-chain   { background: linear-gradient(135deg,#7d6608,#f1c40f); color:#222; }
+        .btn-sheet   { background: linear-gradient(135deg,#6e2f1a,#e67e22); color:white; }
+        .btn-network { background: linear-gradient(135deg,#1b2631,#e74c3c); color:white; }
+        .sim-box {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px;
+            padding: 20px;
+            min-height: 440px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+        .sim-title { font-size: 1.3em; font-weight: bold; margin-bottom: 5px; text-align: center; }
+        .sim-desc  { font-size: 0.85em; color: #ccc; text-align: center; margin-bottom: 15px; }
+        #simCanvas {
+            border-radius: 12px;
+            background: rgba(0,0,0,0.3);
+            display: none;
+        }
+        .info-box {
+            margin-top: 12px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 0.85em;
+            color: #ddd;
+            text-align: center;
+            width: 100%;
+        }
+        .right-panel {
+            flex: 1.2;
+            min-width: 340px;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .right-panel.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(30px);
+        }
+        .table-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #e0e0ff;
+            margin-bottom: 12px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(150,150,255,0.5);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255,255,255,0.05);
+            border-radius: 14px;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            font-size: 0.88em;
+        }
+        thead tr { background: linear-gradient(135deg,#4a235a,#1a3a5c); }
+        th {
+            padding: 12px 8px;
+            text-align: center;
+            color: #e0e0ff;
+            font-size: 0.95em;
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+        }
+        td {
+            padding: 11px 8px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            color: #ddd;
+            vertical-align: middle;
+            transition: all 0.3s ease;
+        }
+        tr:last-child td { border-bottom: none; }
+        .row-olivine   td { background: rgba(155,89,182,0.15); }
+        .row-pyroxene  td { background: rgba(41,128,185,0.15); }
+        .row-amphibole td { background: rgba(26,188,156,0.15); }
+        .row-biotite   td { background: rgba(241,196,15,0.12); }
+        .row-quartz    td { background: rgba(231,76,60,0.13); }
+        .row-feldspar  td { background: rgba(231,76,60,0.08); }
+        .row-hidden { display: none; }
+        .row-highlight td {
+            background: rgba(255,255,255,0.18) !important;
+            color: #fff !important;
+            box-shadow: inset 0 0 12px rgba(255,255,255,0.08);
+        }
+        tr:hover td { background: rgba(255,255,255,0.12) !important; }
+        .mineral-name { font-weight: bold; font-size: 1em; }
+        .badge {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-size: 0.82em;
+            font-weight: bold;
+        }
+        .badge-0   { background:#6c3483; color:white; }
+        .badge-2   { background:#1a5276; color:white; }
+        .badge-23  { background:#0a6b5e; color:white; }
+        .badge-3   { background:#0e6655; color:white; }
+        .badge-4   { background:#922b21; color:white; }
+        .cleavage-none { color:#e74c3c; font-weight:bold; }
+        .cleavage-1    { color:#f1c40f; font-weight:bold; }
+        .cleavage-2    { color:#1abc9c; font-weight:bold; }
+        .legend {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .legend-item { display:flex; align-items:center; gap:6px; font-size:0.82em; color:#bbb; }
+        .legend-dot  { width:16px; height:16px; border-radius:50%; }
+        .note-box {
+            margin-top: 12px;
+            background: rgba(255,255,255,0.06);
+            border-left: 4px solid #9b59b6;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.82em;
+            color: #bbb;
+            line-height: 1.7;
+        }
+        @media (max-width:768px){
+            .main-container { flex-direction:column; }
+        }
+    </style>
+</head>
+<body>
+
+<h1>🔬 규산염 사면체 구조 시뮬레이션</h1>
+<p class="subtitle">Si(규소) 1개 + O(산소) 4개의 공유결합으로 만들어지는 기본 단위</p>
+
+<div class="main-container">
+    <div class="left-panel">
+        <div class="button-group">
+            <button class="btn btn-tetra"   onclick="showStructure('tetra')">🔷 규산염 사면체 기본 구조</button>
+            <button class="btn btn-single"  onclick="showStructure('single')">🌿 독립형 구조 — 감람석</button>
+            <button class="btn btn-double"  onclick="showStructure('chain')">⛓ 단사슬 구조 — 휘석</button>
+            <button class="btn btn-chain"   onclick="showStructure('double')">🔗 복사슬 구조 — 각섬석</button>
+            <button class="btn btn-sheet"   onclick="showStructure('sheet')">📄 판상 구조 — 흑운모</button>
+            <button class="btn btn-network" onclick="showStructure('network')">🕸 망상 구조 — 석영 / 장석</button>
+        </div>
+        <div class="sim-box">
+            <div class="sim-title" id="simTitle">👆 위 버튼을 눌러 구조를 확인하세요!</div>
+            <div class="sim-desc"  id="simDesc">각 구조의 사면체 결합 방식을 시각적으로 확인할 수 있습니다.</div>
+            <canvas id="simCanvas" width="400" height="340"></canvas>
+            <div class="info-box" id="infoBox">버튼을 클릭하면 설명이 표시됩니다.</div>
+        </div>
+    </div>
+
+    <div class="right-panel" id="rightPanel">
+        <div class="table-title" id="tableTitle">📊 규산염 광물 비교표</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>구조형</th>
+                    <th>광물명</th>
+                    <th>결정형</th>
+                    <th>쪼개짐</th>
+                    <th>공유<br>산소 수</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="row-olivine" id="row-olivine">
+                    <td>독립형</td>
+                    <td><span class="mineral-name">감람석</span></td>
+                    <td>짧은<br>기둥 모양</td>
+                    <td><span class="cleavage-none">깨짐</span></td>
+                    <td><span class="badge badge-0">0개</span></td>
+                </tr>
+                <tr class="row-pyroxene" id="row-pyroxene">
+                    <td>단사슬</td>
+                    <td><span class="mineral-name">휘석</span></td>
+                    <td>짧은<br>기둥 모양</td>
+                    <td><span class="cleavage-2">2방향</span></td>
+                    <td><span class="badge badge-2">2개</span></td>
+                </tr>
+                <tr class="row-amphibole" id="row-amphibole">
+                    <td>복사슬</td>
+                    <td><span class="mineral-name">각섬석</span></td>
+                    <td>긴<br>기둥 모양</td>
+                    <td><span class="cleavage-2">2방향</span></td>
+                    <td><span class="badge badge-23">2~3개</span></td>
+                </tr>
+                <tr class="row-biotite" id="row-biotite">
+                    <td>판상</td>
+                    <td><span class="mineral-name">흑운모</span></td>
+                    <td>판 모양</td>
+                    <td><span class="cleavage-1">1방향</span></td>
+                    <td><span class="badge badge-3">3개</span></td>
+                </tr>
+                <tr class="row-quartz" id="row-quartz">
+                    <td rowspan="2">망상</td>
+                    <td><span class="mineral-name">석영</span></td>
+                    <td>육각<br>기둥</td>
+                    <td><span class="cleavage-none">깨짐</span></td>
+                    <td><span class="badge badge-4">4개</span></td>
+                </tr>
+                <tr class="row-feldspar" id="row-feldspar">
+                    <td><span class="mineral-name">장석</span></td>
+                    <td>두꺼운<br>판 모양</td>
+                    <td><span class="cleavage-2">2방향</span></td>
+                    <td><span class="badge badge-4">4개</span></td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#c084fc;"></div>Si (규소)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f87171;"></div>O 비공유</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#fcd34d;"></div>O 공유</div>
+        </div>
+        <div class="note-box" id="noteBox">
+            📌 <b>공유 산소</b>: 이웃한 사면체와 함께 공유하는 산소 원자의 수<br>
+            📌 <b>쪼개짐</b>: 결합이 약한 방향으로 잘 갈라지는 성질<br>
+            📌 공유 산소가 많을수록 구조가 복잡하고 강하게 연결됨
+        </div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('simCanvas');
+const ctx    = canvas.getContext('2d');
+
+const SIC = '#c084fc';
+const OC  = '#f87171';
+const OSC = '#fcd34d';
+const LC  = 'rgba(255,255,255,0.55)';
+
+function ltn(hex, a){
+    return `rgb(${Math.min(255,parseInt(hex.slice(1,3),16)+a)},`+
+           `${Math.min(255,parseInt(hex.slice(3,5),16)+a)},`+
+           `${Math.min(255,parseInt(hex.slice(5,7),16)+a)})`;
+}
+
+function atom(x, y, r, col, lbl, lc='white', fs=13){
+    const g = ctx.createRadialGradient(x-r*.32, y-r*.32, r*.05, x, y, r);
+    g.addColorStop(0, ltn(col,70));
+    g.addColorStop(1, col);
+    ctx.beginPath();
+    ctx.fillStyle = g;
+    ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = lc;
+    ctx.font = `bold ${fs}px Malgun Gothic`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(lbl, x, y);
+}
+
+function bond(x1, y1, x2, y2){
+    ctx.beginPath();
+    ctx.strokeStyle = LC;
+    ctx.lineWidth = 2.8;
+    ctx.setLineDash([]);
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x2,y2);
+    ctx.stroke();
+}
+
+function lbl(text, y, col='rgba(200,200,255,0.85)', fs=12){
+    ctx.fillStyle = col;
+    ctx.font = `${fs}px Malgun Gothic`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(text, 200, y);
+}
+
+function clr(){ ctx.clearRect(0,0,canvas.width,canvas.height); }
+
+/* ── 기본 구조 ── */
+function drawTetra(){
+    const cx = 200, cy = 155;
+    const oTop   = [cx,      cy - 90];
+    const oLeft  = [cx - 90, cy + 45];
+    const oRight = [cx + 90, cy + 45];
+    const oBack  = [cx + 38, cy - 35];
+    [oTop, oLeft, oRight, oBack].forEach(([ox,oy])=>bond(cx,cy,ox,oy));
+    atom(oTop[0],   oTop[1],   28, OC, 'O', 'white', 15);
+    atom(oLeft[0],  oLeft[1],  28, OC, 'O', 'white', 15);
+    atom(oRight[0], oRight[1], 28, OC, 'O', 'white', 15);
+    atom(oBack[0],  oBack[1],  22, OC, 'O', 'white', 13);
+    atom(cx, cy, 34, SIC, 'Si', 'white', 17);
+    ctx.fillStyle = 'rgba(220,210,255,0.9)';
+    ctx.font = 'bold 17px Malgun Gothic';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('[SiO₄]⁴⁻', cx, cy + 120);
+    ctx.font = '13px Malgun Gothic';
+    ctx.fillStyle = 'rgba(180,180,255,0.75)';
+    ctx.fillText('Si (규소) 1개  +  O (산소) 4개  →  정사면체 구조', cx, cy + 150);
+}
+
+/* ── 독립형 (감람석) ── */
+function drawSingle(){
+    const cy = 145;
+    [75, 200, 325].forEach(cx=>{
+        const oTop=[cx,cy-62], oL=[cx-55,cy+38], oR=[cx+55,cy+38], oBk=[cx+22,cy-28];
+        [oTop,oL,oR,oBk].forEach(([ox,oy])=>bond(cx,cy,ox,oy));
+        atom(oTop[0],oTop[1],18,OC,'O','white',11);
+        atom(oL[0],  oL[1],  18,OC,'O','white',11);
+        atom(oR[0],  oR[1],  18,OC,'O','white',11);
+        atom(oBk[0], oBk[1], 14,OC,'O','white',10);
+        atom(cx,cy,24,SIC,'Si','white',13);
+    });
+    lbl('사면체들이 서로 독립적으로 존재', 268);
+    lbl('공유 산소 없음 (0개)', 287, 'rgba(200,150,255,0.9)');
+}
+
+/* ── 단사슬 (휘석) ── */
+function drawChain(){
+    const cy=125, step=72, sx=28, n=5;
+    const si=Array.from({length:n},(_,i)=>sx+i*step+20);
+    si.forEach(cx=>{
+        bond(cx,cy,cx,cy-54); atom(cx,cy-54,15,OC,'O','white',10);
+        bond(cx,cy,cx,cy+54); atom(cx,cy+54,15,OC,'O','white',10);
+    });
+    for(let i=0;i<n-1;i++){
+        const mx=(si[i]+si[i+1])/2;
+        bond(si[i],cy,mx,cy); bond(si[i+1],cy,mx,cy);
+        atom(mx,cy,14,OSC,'O','#333',10);
+    }
+    si.forEach(cx=>atom(cx,cy,21,SIC,'Si','white',12));
+    lbl('단사슬: 산소 2개 공유, 1방향 연결', 250);
+    lbl('휘석 — 짧은 기둥 모양, 쪼개짐 2방향', 268,'rgba(200,150,255,0.9)');
+}
+
+/* ── 복사슬 (각섬석) ── */
+function drawDouble(){
+    const y1=85,y2=185,step=70,n=4,sx=48;
+    const sT=Array.from({length:n},(_,i)=>sx+i*step);
+    sT.forEach(cx=>{bond(cx,y1,cx,y1-40);atom(cx,y1-40,13,OC,'O','white',9);});
+    sT.forEach(cx=>{bond(cx,y2,cx,y2+40);atom(cx,y2+40,13,OC,'O','white',9);});
+    for(let i=0;i<n-1;i++){
+        const mx=(sT[i]+sT[i+1])/2;
+        bond(sT[i],y1,mx,y1);bond(sT[i+1],y1,mx,y1);atom(mx,y1,12,OSC,'O','#333',9);
+        bond(sT[i],y2,mx,y2);bond(sT[i+1],y2,mx,y2);atom(mx,y2,12,OSC,'O','#333',9);
+    }
+    const midY=(y1+y2)/2;
+    for(let i=0;i<n;i++){
+        bond(sT[i],y1,sT[i],midY); bond(sT[i],y2,sT[i],midY);
+        atom(sT[i],midY,12,OSC,'O','#333',9);
+    }
+    sT.forEach(cx=>atom(cx,y1,19,SIC,'Si','white',11));
+    sT.forEach(cx=>atom(cx,y2,19,SIC,'Si','white',11));
+    lbl('복사슬: 두 사슬이 연결 — 각섬석', 283);
+    lbl('긴 기둥 모양, 쪼개짐 2방향', 299,'rgba(200,150,255,0.9)');
+}
+
+/* ── 판상 (흑운모) ── */
+function drawSheet(){
+    const cx=200,cy=142,r=54;
+    const hex=Array.from({length:6},(_,i)=>{
+        const a=Math.PI/6+i*Math.PI/3;
+        return[cx+r*Math.cos(a),cy+r*Math.sin(a)];
+    });
+    hex.forEach(([ox,oy])=>{
+        bond(cx,cy,ox,oy);
+        const dx=ox-cx,dy=oy-cy,nm=Math.hypot(dx,dy);
+        bond(ox,oy,ox+dx/nm*26,oy+dy/nm*26);
+        atom(ox+dx/nm*26,oy+dy/nm*26,12,OC,'O','white',9);
+    });
+    hex.forEach(([ox,oy])=>atom(ox,oy,13,OSC,'O','#333',9));
+    atom(cx,cy,23,SIC,'Si','white',13);
+    hex.forEach(([ox,oy])=>{
+        const dx=ox-cx,dy=oy-cy,nm=Math.hypot(dx,dy);
+        atom(ox+dx/nm*50,oy+dy/nm*50,16,SIC,'Si','white',9);
+    });
+    lbl('판상: 산소 3개 공유, 육각형 평면 구조', 268);
+    lbl('흑운모 — 판 모양, 쪼개짐 1방향', 286,'rgba(200,150,255,0.9)');
+}
+
+/* ── 망상 (석영/장석) ── */
+function drawNetwork(){
+    const cols=4,rows=3,sw=74,sh=70,ox=42,oy=42;
+    const pts=[];
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) pts.push([ox+c*sw,oy+r*sh]);
+    for(let r=0;r<rows;r++) for(let c=0;c<cols-1;c++){
+        const [x1,y1]=pts[r*cols+c],[x2,y2]=pts[r*cols+c+1];
+        bond(x1,y1,x2,y2); atom((x1+x2)/2,(y1+y2)/2,11,OSC,'O','#333',8);
+    }
+    for(let r=0;r<rows-1;r++) for(let c=0;c<cols;c++){
+        const [x1,y1]=pts[r*cols+c],[x2,y2]=pts[(r+1)*cols+c];
+        bond(x1,y1,x2,y2); atom((x1+x2)/2,(y1+y2)/2,11,OSC,'O','#333',8);
+    }
+    pts.forEach(([x,y])=>atom(x,y,17,SIC,'Si','white',10));
+    lbl('망상: 산소 4개 모두 공유, 3차원 그물망', 270);
+    lbl('석영 (육각기둥·깨짐) / 장석 (두꺼운판·2방향)', 288,'rgba(200,150,255,0.9)');
+}
+
+/* ══ 표 업데이트 ══ */
+const rowVis={
+    tetra:  {show:[],highlight:[]},
+    single: {show:['olivine'],highlight:['olivine']},
+    chain:  {show:['pyroxene'],highlight:['pyroxene']},
+    double: {show:['amphibole'],highlight:['amphibole']},
+    sheet:  {show:['biotite'],highlight:['biotite']},
+    network:{show:['quartz','feldspar'],highlight:['quartz','feldspar']},
+};
+const tblTitles={
+    single: '🌿 독립형 구조 — 감람석',
+    chain:  '⛓ 단사슬 구조 — 휘석',
+    double: '🔗 복사슬 구조 — 각섬석',
+    sheet:  '📄 판상 구조 — 흑운모',
+    network:'🕸 망상 구조 — 석영 / 장석',
+};
+const notes={
+    single:`🟣 <b>감람석 (독립형)</b><br>
+            📌 사면체끼리 공유 산소 <b>없음 (0개)</b><br>
+            📌 쪼개짐 없이 불규칙하게 깨짐<br>
+            📌 사면체가 독립적으로 분리된 구조`,
+    chain: `🔵 <b>휘석 (단사슬)</b><br>
+            📌 산소 <b>2개</b>를 공유하며 1방향으로 사슬 형성<br>
+            📌 쪼개짐 <b>2방향</b> | 짧은 기둥 모양의 결정형`,
+    double:`🟢 <b>각섬석 (복사슬)</b><br>
+            📌 두 사슬이 나란히 연결, 공유 산소 <b>2~3개</b><br>
+            📌 쪼개짐 <b>2방향</b> | 긴 기둥 모양의 결정형`,
+    sheet: `🟡 <b>흑운모 (판상)</b><br>
+            📌 산소 <b>3개</b>를 공유하며 육각형 평면 구조 형성<br>
+            📌 쪼개짐 <b>1방향</b> → 얇게 잘 벗겨짐 | 판 모양`,
+    network:`🔴 <b>석영 / 장석 (망상)</b><br>
+            📌 산소 <b>4개</b> 모두 공유 → 3차원 그물망 구조<br>
+            📌 석영: 육각기둥, 깨짐 &nbsp;|&nbsp; 장석: 두꺼운 판, 쪼개짐 2방향`,
+};
+
+function updateTable(type){
+    const rp=document.getElementById('rightPanel');
+    if(type==='tetra'){ rp.classList.add('hidden'); return; }
+    rp.classList.remove('hidden');
+    const {show,highlight}=rowVis[type];
+    ['olivine','pyroxene','amphibole','biotite','quartz','feldspar'].forEach(id=>{
+        const row=document.getElementById(`row-${id}`);
+        if(!row)return;
+        row.classList.toggle('row-hidden',!show.includes(id));
+        row.classList.toggle('row-highlight',highlight.includes(id));
+    });
+    const qTd=document.querySelector('#row-quartz td:first-child');
+    if(qTd) qTd.setAttribute('rowspan',type==='network'?'2':'1');
+    document.getElementById('tableTitle').textContent=tblTitles[type]||'📊 규산염 광물 비교표';
+    document.getElementById('noteBox').innerHTML=notes[type]||'';
+}
+
+/* ══ 메인 ══ */
+const TITLES={
+    tetra:  '🔷 규산염 사면체 기본 구조',
+    single: '🌿 독립형 구조 — 감람석',
+    chain:  '⛓ 단사슬 구조 — 휘석',
+    double: '🔗 복사슬 구조 — 각섬석',
+    sheet:  '📄 판상 구조 — 흑운모',
+    network:'🕸 망상 구조 — 석영 / 장석',
+};
+const DESCS={
+    tetra:  'Si 1개가 O 4개와 공유결합 → 사면체 형태의 기본 단위',
+    single: '사면체가 독립적으로 존재, 공유 산소 없음',
+    chain:  '산소 2개 공유 → 사면체가 1열로 연결된 사슬 구조',
+    double: '두 사슬이 나란히 연결 → 더 넓은 복사슬 구조',
+    sheet:  '산소 3개 공유 → 평면 육각형 판상 구조',
+    network:'산소 4개 모두 공유 → 3차원 그물망 구조',
+};
+const INFOS={
+    tetra:  '🟣 보라 = Si(규소) 1개  |  🔴 빨강 = O(산소) 4개  |  Si 1개와 O 4개가 결합한 사면체 구조',
+    single: '✅ 공유 산소 0개 | 사면체끼리 연결 없음 | 감람석',
+    chain:  '✅ 공유 산소 2개 | 단사슬 | 휘석 — 짧은 기둥, 쪼개짐 2방향',
+    double: '✅ 공유 산소 2~3개 | 복사슬 | 각섬석 — 긴 기둥, 쪼개짐 2방향',
+    sheet:  '✅ 공유 산소 3개 | 판상 | 흑운모 — 판 모양, 쪼개짐 1방향',
+    network:'✅ 공유 산소 4개 | 망상 | 석영(깨짐) / 장석(쪼개짐 2방향)',
+};
+const BMAP={tetra:0,single:1,chain:2,double:3,sheet:4,network:5};
+
+function showStructure(type){
+    document.getElementById('simTitle').textContent=TITLES[type];
+    document.getElementById('simDesc').textContent=DESCS[type];
+    document.getElementById('infoBox').textContent=INFOS[type];
+    document.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.btn')[BMAP[type]].classList.add('active');
+    updateTable(type);
+    canvas.style.display='block';
+    clr();
+    if(type==='tetra')        drawTetra();
+    else if(type==='single')  drawSingle();
+    else if(type==='chain')   drawChain();
+    else if(type==='double')  drawDouble();
+    else if(type==='sheet')   drawSheet();
+    else if(type==='network') drawNetwork();
+}
+
+// 초기 안내
+canvas.style.display='block';
+clr();
+ctx.fillStyle='rgba(200,200,255,0.4)';
+ctx.font='16px Malgun Gothic';
+ctx.textAlign='center';
+ctx.textBaseline='middle';
+ctx.fillText('위 버튼을 눌러 구조를 선택하세요 👆', 200, 170);
+</script>
+</body>
+</html>
